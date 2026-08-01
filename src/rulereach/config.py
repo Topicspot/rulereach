@@ -39,7 +39,8 @@ def _read(path: Path) -> dict[str, Any] | None:
         return None
     try:
         with path.open("rb") as handle:
-            return tomllib.load(handle)
+            data: dict[str, Any] = tomllib.load(handle)
+            return data
     except tomllib.TOMLDecodeError as error:
         _warn(f"ignoring {path.name}: invalid TOML ({error})")
     except OSError as error:

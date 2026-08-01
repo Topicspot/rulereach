@@ -62,6 +62,12 @@ files = ["src", "tests", "scripts"]
 module = ["PIL.*"]
 ignore_missing_imports = true
 
+# tomli is only installed on Python 3.10, where the standard library has no tomllib.
+# The type checker runs on a newer interpreter, so the import cannot be resolved there.
+[[tool.mypy.overrides]]
+module = ["tomli"]
+ignore_missing_imports = true
+
 [tool.vulture]
 paths = ["src"]
 min_confidence = 80
