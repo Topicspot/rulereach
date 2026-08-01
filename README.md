@@ -1,5 +1,12 @@
 # rulereach
 
+**English** · [Русский](docs/README.ru.md) · [简体中文](docs/README.zh-CN.md) · [Español](docs/README.es.md) · [Português](docs/README.pt-BR.md)
+
+[![PyPI](https://img.shields.io/pypi/v/rulereach?style=flat-square&label=pypi&color=3775A9)](https://pypi.org/project/rulereach/)
+[![Python](https://img.shields.io/pypi/pyversions/rulereach?style=flat-square&color=4B8BBE)](https://pypi.org/project/rulereach/)
+[![CI](https://github.com/Topicspot/rulereach/actions/workflows/ci.yml/badge.svg)](https://github.com/Topicspot/rulereach/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](https://github.com/Topicspot/rulereach/blob/main/LICENSE)
+
 Your agent instruction files can be perfectly written and still never reach the agent.
 A Cursor rule with `globs` as a YAML list never attaches. A `@import` in `CLAUDE.md` that
 points one directory too high is skipped without a word. A file in `.github/instructions/`
@@ -128,3 +135,25 @@ and when.
 ## License
 
 MIT
+
+---
+
+## ☕ Support the author
+
+This project is free and MIT-licensed. If it saved you time, you can send a coffee.
+
+**USDT, Tron network (TRC-20) only:**
+
+```text
+TS9ywGeSyKQxiCszdKCHLR8DRAsnYCosNN
+```
+
+<details>
+<summary>Другие языки / Other languages</summary>
+
+- **Українська:** проєкт безкоштовний. Якщо він заощадив вам час — можна підтримати автора,
+  USDT у мережі Tron (TRC-20), адреса вище.
+- **Русский:** проект бесплатный. Если он сэкономил вам время, можно поддержать автора,
+  USDT в сети Tron (TRC-20), адрес выше.
+
+</details>
