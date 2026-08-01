@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__, checks, report
+from .config import load_config
 from .discovery import scan
 from .model import Severity, Tool
 from .tools import CHAINS
@@ -77,26 +78,35 @@ def _root(path: str) -> Path:
 
 
 def _check(args: argparse.Namespace) -> int:
-    repo = scan(_root(args.path), args.exclude)
+    root = _root(args.path)
+    config = load_config(root)
+    exclude = args.exclude if args.exclude is not None else (config.exclude or None)
+    strict = args.strict or config.strict
+    repo = scan(root, exclude)
     wanted = set(_tools(args.tool))
     findings = [finding for finding in checks.run(repo) if finding.tool in wanted]
     print(report.as_json(findings=findings) if args.json else report.format_findings(findings))
     if any(finding.severity is Severity.ERROR for finding in findings):
         return EXIT_FINDINGS
-    if args.strict and findings:
+    if strict and findings:
         return EXIT_FINDINGS
     return EXIT_OK
 
 
 def _list(args: argparse.Namespace) -> int:
-    repo = scan(_root(args.path), args.exclude)
+    root = _root(args.path)
+    config = load_config(root)
+    exclude = args.exclude if args.exclude is not None else (config.exclude or None)
+    repo = scan(root, exclude)
     print(report.as_json(sources=repo.sources) if args.json else report.format_inventory(repo))
     return EXIT_OK
 
 
 def _explain(args: argparse.Namespace) -> int:
     root = _root(args.path)
-    repo = scan(root)
+    config = load_config(root)
+    exclude = config.exclude or None
+    repo = scan(root, exclude)
     target = Path(args.target)
     if target.is_absolute():
         try:

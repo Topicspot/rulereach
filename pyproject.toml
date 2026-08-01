@@ -68,3 +68,7 @@ min_confidence = 80
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.rulereach]
+exclude = ["tests/fixtures/**"]
+

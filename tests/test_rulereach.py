@@ -305,3 +305,64 @@ def test_lenient_rule_is_path_scoped(tmp_path: Path) -> None:
     source = next(source for source in scan(tmp_path).sources if source.relpath.endswith(".mdc"))
     assert source.when is When.PATH_SCOPED
     assert checks.run(scan(tmp_path)) == []
+
+
+# --- config --------------------------------------------------------------------------
+
+
+def test_config_from_pyproject_toml(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / "pyproject.toml").write_text('[tool.rulereach]\nexclude = [".cursor/**"]\n')
+    (tmp_path / "AGENTS.md").write_text("ok\n")
+    (tmp_path / "CLAUDE.md").write_text("@AGENTS.md\n")
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "dead.md").write_text("dead rule\n")
+
+    assert main(["check", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "reach an agent" in out
+
+
+def test_config_from_rulereach_toml(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / ".rulereach.toml").write_text('exclude = [".cursor/**"]\n')
+    (tmp_path / "AGENTS.md").write_text("ok\n")
+    (tmp_path / "CLAUDE.md").write_text("@AGENTS.md\n")
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "dead.md").write_text("dead rule\n")
+
+    assert main(["check", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "reach an agent" in out
+
+
+def test_cli_override_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / ".rulereach.toml").write_text('exclude = [".cursor/**"]\n')
+    (tmp_path / "AGENTS.md").write_text("ok\n")
+    (tmp_path / "CLAUDE.md").write_text("@AGENTS.md\n")
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "dead.md").write_text("dead rule\n")
+
+    # CLI --exclude overrides config file
+    assert main(["check", str(tmp_path), "--exclude", "other/**"]) == 1
+    out = capsys.readouterr().out
+    assert "RR101" in out
+
+
+def test_config_strict_mode(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / ".rulereach.toml").write_text("strict = true\n")
+    (tmp_path / "CLAUDE.md").write_text("see @missing.md\n")
+
+    assert main(["check", str(tmp_path)]) == 1
+    capsys.readouterr()
+
+
+def test_malformed_config_handled_without_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / ".rulereach.toml").write_text("this is [invalid toml :::\n")
+    (tmp_path / "AGENTS.md").write_text("ok\n")
+    (tmp_path / "CLAUDE.md").write_text("@AGENTS.md\n")
+
+    assert main(["check", str(tmp_path)]) == 0
