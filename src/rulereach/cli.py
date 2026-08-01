@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 
 from . import __version__, checks, report
+from .config import Config
+from .config import load as load_config
 from .discovery import scan
 from .model import Severity, Tool
 from .tools import CHAINS
@@ -30,7 +32,18 @@ def build_parser() -> argparse.ArgumentParser:
     check = sub.add_parser("check", help="report instructions that never reach an agent")
     check.add_argument("path", nargs="?", default=".", help="repository root (default: .)")
     check.add_argument("--json", action="store_true", help="machine-readable output")
-    check.add_argument("--strict", action="store_true", help="exit 1 on warnings and notes too")
+    check.add_argument(
+        "--strict",
+        action="store_true",
+        default=None,
+        help="exit 1 on warnings and notes too",
+    )
+    check.add_argument(
+        "--no-strict",
+        dest="strict",
+        action="store_false",
+        help="ignore strict = true from the configuration file",
+    )
     check.add_argument(
         "--exclude",
         action="append",
@@ -76,27 +89,39 @@ def _root(path: str) -> Path:
     return root
 
 
+def _settings(args: argparse.Namespace) -> tuple[Path, Config]:
+    root = _root(args.path)
+    return root, load_config(root)
+
+
+def _excludes(args: argparse.Namespace, config: Config) -> list[str] | None:
+    return args.exclude if args.exclude else config.exclude
+
+
 def _check(args: argparse.Namespace) -> int:
-    repo = scan(_root(args.path), args.exclude)
+    root, config = _settings(args)
+    strict = args.strict if args.strict is not None else bool(config.strict)
+    repo = scan(root, _excludes(args, config))
     wanted = set(_tools(args.tool))
     findings = [finding for finding in checks.run(repo) if finding.tool in wanted]
     print(report.as_json(findings=findings) if args.json else report.format_findings(findings))
     if any(finding.severity is Severity.ERROR for finding in findings):
         return EXIT_FINDINGS
-    if args.strict and findings:
+    if strict and findings:
         return EXIT_FINDINGS
     return EXIT_OK
 
 
 def _list(args: argparse.Namespace) -> int:
-    repo = scan(_root(args.path), args.exclude)
+    root, config = _settings(args)
+    repo = scan(root, _excludes(args, config))
     print(report.as_json(sources=repo.sources) if args.json else report.format_inventory(repo))
     return EXIT_OK
 
 
 def _explain(args: argparse.Namespace) -> int:
-    root = _root(args.path)
-    repo = scan(root)
+    root, config = _settings(args)
+    repo = scan(root, config.exclude)
     target = Path(args.target)
     if target.is_absolute():
         try:

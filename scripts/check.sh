@@ -17,7 +17,7 @@ step "ruff check" uv run ruff check .
 step "mypy --strict" uv run mypy
 step "pytest" uv run python -m pytest -q
 step "vulture" uv run vulture
-step "rulereach on itself" uv run rulereach check . --exclude "tests/fixtures/**"
+step "rulereach on itself" uv run rulereach check .  # excludes come from pyproject.toml
 export_req() { uv export --no-emit-project --extra dev -o /tmp/rulereach-req.txt -q; }
 pip_audit() { export_req && uv run pip-audit --no-deps -r /tmp/rulereach-req.txt; }
 step "pip-audit" pip_audit

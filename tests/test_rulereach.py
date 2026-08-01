@@ -305,3 +305,95 @@ def test_lenient_rule_is_path_scoped(tmp_path: Path) -> None:
     source = next(source for source in scan(tmp_path).sources if source.relpath.endswith(".mdc"))
     assert source.when is When.PATH_SCOPED
     assert checks.run(scan(tmp_path)) == []
+
+
+# --- configuration file -------------------------------------------------------------
+
+
+def _repo_with_dead_rule(root: Path) -> None:
+    (root / "AGENTS.md").write_text("Build with make.\n")
+    (root / "CLAUDE.md").write_text("@AGENTS.md\n")
+    rules = root / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "dead.md").write_text("Cursor never reads .md here.\n")
+
+
+def test_exclude_from_pyproject(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / "pyproject.toml").write_text('[tool.rulereach]\nexclude = [".cursor/**"]\n')
+    assert main(["check", str(tmp_path)]) == 0
+    assert "RR101" not in capsys.readouterr().out
+
+
+def test_exclude_from_dedicated_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / ".rulereach.toml").write_text('exclude = ".cursor/**"\n')
+    assert main(["check", str(tmp_path)]) == 0
+    capsys.readouterr()
+
+
+def test_dedicated_file_wins_over_pyproject(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / "pyproject.toml").write_text('[tool.rulereach]\nexclude = ["nothing/**"]\n')
+    (tmp_path / ".rulereach.toml").write_text('exclude = [".cursor/**"]\n')
+    assert main(["check", str(tmp_path)]) == 0
+    capsys.readouterr()
+
+
+def test_flag_wins_over_configuration_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / ".rulereach.toml").write_text('exclude = [".cursor/**"]\n')
+    assert main(["check", str(tmp_path), "--exclude", "nothing/**"]) == 1
+    assert "RR101" in capsys.readouterr().out
+
+
+def test_strict_from_configuration_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / "AGENTS.md").write_text("Build with make.\n")
+    (tmp_path / "CLAUDE.md").write_text("@AGENTS.md\n")
+    (tmp_path / ".github" / "instructions").mkdir(parents=True)
+    (tmp_path / ".github" / "instructions" / "py.instructions.md").write_text(
+        "---\napplyTo: 'nothing/**'\n---\n\nUse type hints.\n"
+    )
+    assert main(["check", str(tmp_path)]) == 0
+    (tmp_path / ".rulereach.toml").write_text("strict = true\n")
+    assert main(["check", str(tmp_path)]) == 1
+    assert main(["check", str(tmp_path), "--no-strict"]) == 0
+    capsys.readouterr()
+
+
+def test_invalid_configuration_file_is_reported(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / ".rulereach.toml").write_text("exclude = [.cursor/**]\n")
+    assert main(["check", str(tmp_path)]) == 1
+    captured = capsys.readouterr()
+    assert "invalid TOML" in captured.err
+    assert "RR101" in captured.out
+
+
+def test_unusable_configuration_values_are_reported(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / ".rulereach.toml").write_text('exclude = 7\nstrict = "yes"\nverbose = true\n')
+    assert main(["check", str(tmp_path)]) == 1
+    error = capsys.readouterr().err
+    assert "exclude must be a string or a list of strings" in error
+    assert "strict must be true or false" in error
+    assert "unknown key 'verbose'" in error
+
+
+def test_configuration_applies_to_list_and_explain(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _repo_with_dead_rule(tmp_path)
+    (tmp_path / ".rulereach.toml").write_text('exclude = [".cursor/**"]\n')
+    assert main(["list", str(tmp_path), "--json"]) == 0
+    assert ".cursor" not in capsys.readouterr().out
+    assert main(["explain", "AGENTS.md", "--path", str(tmp_path), "--json"]) == 0
+    assert ".cursor" not in capsys.readouterr().out

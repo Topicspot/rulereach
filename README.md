@@ -108,6 +108,22 @@ still match.
 Every finding cites the vendor documentation that defines the behaviour. The exact
 sentences the checks are built on are collected in [docs/semantics.md](docs/semantics.md).
 
+## Configuration
+
+Optional. Put the flags you would otherwise repeat into `pyproject.toml`:
+
+```toml
+[tool.rulereach]
+exclude = ["tests/fixtures/**"]
+strict = false
+```
+
+Projects without a `pyproject.toml` can use a `.rulereach.toml` with the same keys at the top
+level. If both exist, `.rulereach.toml` wins, and command line flags win over both, so
+`--exclude` replaces the configured list and `--no-strict` turns off a configured `strict`.
+An unreadable file, an unknown key or a value of the wrong type is reported on stderr rather
+than ignored.
+
 ## In CI
 
 ```yaml
