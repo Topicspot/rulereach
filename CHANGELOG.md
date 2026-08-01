@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Configuration file support: `[tool.rulereach]` in `pyproject.toml` or `.rulereach.toml` with
+  `exclude` and `strict`, so the flags do not have to be repeated on every run. Command line
+  flags still win, and `--no-strict` turns off a configured `strict`. Unusable files, keys and
+  values are reported on stderr instead of being ignored.
+  Thanks to [@HeaTTap](https://github.com/HeaTTap) for the original implementation in
+  [#4](https://github.com/Topicspot/rulereach/pull/4).
+
 ## [0.1.0] - 2026-08-01
 
 First release.

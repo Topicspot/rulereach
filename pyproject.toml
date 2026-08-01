@@ -15,7 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Software Development :: Quality Assurance",
 ]
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML>=6.0", "tomli>=2.0.1; python_version < '3.11'"]
 
 [project.urls]
 Homepage = "https://github.com/Topicspot/rulereach"
@@ -62,9 +62,18 @@ files = ["src", "tests", "scripts"]
 module = ["PIL.*"]
 ignore_missing_imports = true
 
+# tomli is only installed on Python 3.10, where the standard library has no tomllib.
+# The type checker runs on a newer interpreter, so the import cannot be resolved there.
+[[tool.mypy.overrides]]
+module = ["tomli"]
+ignore_missing_imports = true
+
 [tool.vulture]
 paths = ["src"]
 min_confidence = 80
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.rulereach]
+exclude = ["tests/fixtures/**"]
