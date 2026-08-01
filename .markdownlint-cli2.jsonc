@@ -1,0 +1,18 @@
+{
+  "config": {
+    "MD013": false,
+    "MD033": false,
+    "MD012": false,
+    "MD036": false
+  },
+  // CLAUDE.md starts with an @AGENTS.md import, which is the documented way to keep one
+  // canonical instruction file, so MD041 does not apply to it.
+  "ignores": [
+    ".venv/**",
+    "tests/fixtures/**",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "lychee-*/**",
+    "gitleaks*/**"
+  ]
+}

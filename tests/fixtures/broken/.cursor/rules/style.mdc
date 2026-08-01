@@ -1,0 +1,7 @@
+---
+globs:
+  - "src/**/*.ts"
+alwaysApply: false
+---
+
+Use named exports.

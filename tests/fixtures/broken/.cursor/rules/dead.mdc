@@ -1,0 +1,6 @@
+---
+globs: app/models/**/*.rb
+alwaysApply: false
+---
+
+Validate at the boundary.
