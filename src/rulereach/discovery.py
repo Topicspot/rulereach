@@ -37,7 +37,7 @@ SKIP_DIRS = {
 
 _FRONTMATTER = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n?", re.DOTALL)
 _FENCE = re.compile(r"^\s*(```|~~~)")
-_IMPORT = re.compile(r"(?<![\w`])@([^\s`]+)")
+_IMPORT = re.compile(r"(?<![\w`])@([^\s`\]\)\(<>\"']+)")
 _MISCASED = re.compile(r"^claude\.md$|^Claude\.md$|^CLAUDE\.MD$|^CLAUDE\.markdown$")
 
 
@@ -55,16 +55,52 @@ class Repo:
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
-    """Split YAML frontmatter from the body. Malformed YAML yields an empty mapping."""
+    """Split frontmatter from the body.
+
+    A glob written the way the tools document it, such as ``globs: **/*.test.ts``, is not
+    valid YAML: a value starting with ``*`` reads as an alias. The tools accept it anyway, so
+    when the YAML parser refuses the block we fall back to a line-based read of the simple
+    ``key: value`` pairs the tools care about.
+    """
     match = _FRONTMATTER.match(text)
     if match is None:
         return {}, text
+    block, body = match.group(1), text[match.end() :]
     try:
-        loaded: Any = yaml.safe_load(match.group(1))
+        loaded: Any = yaml.safe_load(block)
     except yaml.YAMLError:
-        return {}, text[match.end() :]
-    data = loaded if isinstance(loaded, dict) else {}
-    return data, text[match.end() :]
+        return lenient_frontmatter(block), body
+    if not isinstance(loaded, dict):
+        return lenient_frontmatter(block), body
+    return loaded, body
+
+
+def lenient_frontmatter(block: str) -> dict[str, object]:
+    """Read ``key: value`` pairs and ``- item`` lists without a YAML parser."""
+    data: dict[str, object] = {}
+    key: str | None = None
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("- ") and key is not None:
+            item = stripped[2:].strip().strip("\"'")
+            existing = data.get(key)
+            if isinstance(existing, list):
+                existing.append(item)
+            elif existing in (None, ""):
+                data[key] = [item]
+            continue
+        if ":" not in stripped:
+            continue
+        key, _, value = stripped.partition(":")
+        key = key.strip()
+        value = value.strip()
+        if value in {"true", "false"}:
+            data[key] = value == "true"
+        else:
+            data[key] = value
+    return data
 
 
 def find_imports(body: str) -> list[str]:
@@ -83,7 +119,7 @@ def find_imports(body: str) -> list[str]:
             continue
         without_spans = re.sub(r"`[^`]*`", "", line)
         for match in _IMPORT.finditer(without_spans):
-            target = match.group(1).rstrip(".,;:)")
+            target = match.group(1).rstrip(".,;:").split("#", 1)[0]
             if target and not target.startswith(("http://", "https://")):
                 imports.append(target)
     return imports

@@ -93,6 +93,11 @@ Add `--json` to any command for machine-readable output.
 | RR402 | Copilot | path-specific instructions with no `applyTo`, so they never apply |
 | RR403 | Copilot | `applyTo` pattern that matches no file in the repository |
 
+Severity is about consequence, not style. An error means the file cannot load, ever. A
+warning means it probably does not load, or loads less than you think. A note is behaviour
+worth knowing that is not a mistake, such as one stale pattern in a rule whose other patterns
+still match.
+
 Every finding cites the vendor documentation that defines the behaviour. The exact
 sentences the checks are built on are collected in [docs/semantics.md](docs/semantics.md).
 

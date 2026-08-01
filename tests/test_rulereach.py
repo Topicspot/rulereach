@@ -73,9 +73,9 @@ def test_frontmatter_and_body() -> None:
     assert body.strip() == "Text."
 
 
-def test_malformed_frontmatter_is_not_fatal() -> None:
+def test_malformed_frontmatter_falls_back_to_a_line_read() -> None:
     frontmatter, body = parse_frontmatter("---\nglobs: [unclosed\n---\nText.\n")
-    assert frontmatter == {}
+    assert frontmatter == {"globs": "[unclosed"}
     assert "Text." in body
 
 
@@ -113,6 +113,15 @@ def test_skips_dependency_directories(tmp_path: Path) -> None:
 
 
 # --- checks --------------------------------------------------------------------------
+
+
+def test_one_dead_pattern_among_live_ones_is_only_a_note(tmp_path: Path) -> None:
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (tmp_path / "a.ts").write_text("export {};\n")
+    (rules / "mixed.mdc").write_text("---\nglobs: **/*.ts, **/*.rb\n---\n\nRules.\n")
+    findings = [finding for finding in checks.run(scan(tmp_path)) if finding.check == "RR104"]
+    assert [finding.severity for finding in findings] == [Severity.NOTE]
 
 
 def test_broken_fixture_findings() -> None:
@@ -274,3 +283,25 @@ def test_exclude_flag_on_the_cli(capsys: pytest.CaptureFixture[str]) -> None:
     out = capsys.readouterr().out
     assert "RR101" not in out
     assert "RR201" in out
+
+
+def test_imports_stop_at_markdown_syntax() -> None:
+    body = "- __[@docs/guide.md](docs/guide.md)__\n- @docs/other.md#section\n"
+    assert find_imports(body) == ["docs/guide.md", "docs/other.md"]
+
+
+def test_unquoted_star_glob_is_read_leniently() -> None:
+    frontmatter, _ = parse_frontmatter("---\nglobs: **/*.test.ts\nalwaysApply: false\n---\nx\n")
+    assert frontmatter["globs"] == "**/*.test.ts"
+
+
+def test_lenient_rule_is_path_scoped(tmp_path: Path) -> None:
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (tmp_path / "a.test.ts").write_text("export {};\n")
+    (rules / "tests.mdc").write_text(
+        "---\ndescription:\nglobs: **/*.test.ts\n---\n\nMock nothing.\n"
+    )
+    source = next(source for source in scan(tmp_path).sources if source.relpath.endswith(".mdc"))
+    assert source.when is When.PATH_SCOPED
+    assert checks.run(scan(tmp_path)) == []

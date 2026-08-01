@@ -62,14 +62,22 @@ def _comma(source: Source) -> str:
     return ", ".join(pattern.raw for pattern in source.patterns)
 
 
-def _dead_patterns(source: Source, repo: Repo, *, expand: bool) -> list[str]:
+def _dead_patterns(source: Source, repo: Repo, *, expand: bool) -> tuple[list[str], Severity]:
+    """Patterns that match nothing, and how much that matters.
+
+    A rule whose every pattern is dead can never attach, which is a warning. A rule with one
+    stale pattern among working ones still attaches, so it is only worth a note.
+    """
     dead: list[str] = []
+    live = 0
     for pattern in source.patterns:
         if not pattern.usable:
             continue
-        if not any(matches(pattern.raw, path, expand=expand) for path in repo.files):
+        if any(matches(pattern.raw, path, expand=expand) for path in repo.files):
+            live += 1
+        else:
             dead.append(pattern.raw)
-    return dead
+    return dead, Severity.NOTE if live else Severity.WARNING
 
 
 def _cursor(repo: Repo) -> list[Finding]:
@@ -129,11 +137,12 @@ def _cursor(repo: Repo) -> list[Finding]:
                     DOC_CURSOR,
                 )
             )
-        for pattern in _dead_patterns(source, repo, expand=False):
+        dead, severity = _dead_patterns(source, repo, expand=False)
+        for pattern in dead:
             findings.append(
                 _finding(
                     "RR104",
-                    Severity.WARNING,
+                    severity,
                     source,
                     Tool.CURSOR,
                     f"glob {pattern!r} matches no file in the repository",
@@ -206,11 +215,12 @@ def _claude(repo: Repo) -> list[Finding]:
                         DOC_CLAUDE,
                     )
                 )
-        for dead in _dead_patterns(source, repo, expand=True):
+        dead_paths, severity = _dead_patterns(source, repo, expand=True)
+        for dead in dead_paths:
             findings.append(
                 _finding(
                     "RR205",
-                    Severity.WARNING,
+                    severity,
                     source,
                     Tool.CLAUDE,
                     f"paths pattern {dead!r} matches no file in the repository",
@@ -365,11 +375,12 @@ def _copilot(repo: Repo) -> list[Finding]:
                 )
             )
             continue
-        for pattern in _dead_patterns(source, repo, expand=False):
+        dead, severity = _dead_patterns(source, repo, expand=False)
+        for pattern in dead:
             findings.append(
                 _finding(
                     "RR403",
-                    Severity.WARNING,
+                    severity,
                     source,
                     Tool.COPILOT,
                     f"applyTo pattern {pattern!r} matches no file in the repository",
